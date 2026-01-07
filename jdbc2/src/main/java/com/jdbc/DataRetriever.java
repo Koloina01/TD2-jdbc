@@ -14,6 +14,61 @@ public class DataRetriever {
         this.dbConnection = new DBConnection();
     }
 
+    public Team findTeamById(Integer id) {
+        Team team = null;
+
+        String teamQuery = "SELECT id, name, continent FROM team WHERE id = ?";
+        String playersQuery = """
+                    SELECT id, name, age, position, goal_nb
+                    FROM player
+                    WHERE team_id = ?
+                """;
+
+        try (Connection connection = dbConnection.getConnection()) {
+
+            try (PreparedStatement teamStmt = connection.prepareStatement(teamQuery)) {
+                teamStmt.setInt(1, id);
+
+                ResultSet teamRs = teamStmt.executeQuery();
+
+                if (teamRs.next()) {
+                    team = new Team(
+                            teamRs.getInt("id"),
+                            teamRs.getString("name"),
+                            ContinentEnum.valueOf(teamRs.getString("continent")));
+                } else {
+                    return null;
+                }
+
+            }
+
+
+            try (PreparedStatement playerStmt = connection.prepareStatement(playersQuery)) {
+                playerStmt.setInt(1, id);
+
+                ResultSet playerRs = playerStmt.executeQuery();
+
+                while (playerRs.next()) {
+                    Player player = new Player(
+                            playerRs.getInt("id"),
+                            playerRs.getString("name"),
+                            playerRs.getInt("age"),
+                            PositionEnum.valueOf(playerRs.getString("position")),
+                            team.getId(),
+                            (Integer) playerRs.getObject("goal_nb") // nullable
+                    );
+
+                    team.getPlayers().add(player);
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return team;
+    }
+
     public List<Player> findPlayers(int page, int size) {
         List<Player> players = new ArrayList<>();
         int offset = (page - 1) * size;
