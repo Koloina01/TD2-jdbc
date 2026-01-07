@@ -6,13 +6,15 @@ public class Player {
     private int age;
     private PositionEnum position;
     private int teamId;
+    private Integer goalNb;
 
-    public Player(int id, String name, int age, PositionEnum position, int teamId) {
+    public Player(int id, String name, int age, PositionEnum position, int teamId, Integer goalNb) {
         this.id = id;
         this.name = name;
         this.age = age;
         this.position = position;
         this.teamId = teamId;
+        this.goalNb = goalNb;
     }
 
     public int getId() {
@@ -33,6 +35,9 @@ public class Player {
 
     public int getTeamId() {
         return teamId;
+    }
+    public Integer getGoalNb() {
+        return goalNb;
     }
 
     public String getTeamName() {
@@ -59,6 +64,11 @@ public class Player {
         this.teamId = teamId;
         return teamId;
     }
+    public Integer setGoalNb(Integer goalNb) {
+        this.goalNb = goalNb;
+        return goalNb;
+    }
+    
 
     @Override
 
