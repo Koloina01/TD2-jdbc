@@ -22,7 +22,7 @@ public class DataRetriever {
             Connection conn = dbConnection.getConnection();
 
             PreparedStatement ps = conn.prepareStatement(
-                    "SELECT id, name, age, position, team_id FROM Player LIMIT ? OFFSET ?");
+                    "SELECT id, name, age, position, team_id, goal_nb FROM player LIMIT ? OFFSET ?");
             ps.setInt(1, size);
             ps.setInt(2, offset);
 
@@ -34,7 +34,8 @@ public class DataRetriever {
                         rs.getString("name"),
                         rs.getInt("age"),
                         PositionEnum.valueOf(rs.getString("position").toUpperCase()),
-                        rs.getInt("team_id")));
+                        rs.getInt("team_id"),
+                        (Integer) rs.getObject("goal_nb")));
             }
 
             rs.close();
@@ -49,8 +50,8 @@ public class DataRetriever {
 
     public List<Player> createPlayers(List<Player> newPlayers) {
         String sql = """
-                    INSERT INTO player (id, name, age, position, team_id)
-                VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO player (id, name, age, position, team_id, goal_nb)
+                VALUES (?, ?, ?, ?::player_position, ?)
                     """;
         try (Connection connection = dbConnection.getConnection()) {
 
@@ -70,7 +71,7 @@ public class DataRetriever {
                     insertStmt.setInt(3, player.getAge());
                     insertStmt.setString(4, player.getPosition().name());
                     insertStmt.setInt(5, player.getTeamId());
-
+                    insertStmt.setObject(6, player.getGoalNb());
                     insertStmt.executeUpdate();
                 }
 
@@ -99,8 +100,8 @@ public class DataRetriever {
 
     public Team saveTeam(Team team) {
         String verifySql = "SELECT 1 FROM team WHERE id = ?";
-        String insertSql = "INSERT INTO team (id, name, ContinentEnum) VALUES (?, ?, ?)";
-        String updateSql = "UPDATE team SET name = ?, ContinentEnum = ? WHERE id = ?";
+        String insertSql = "INSERT INTO team (id, name, continent) VALUES (?, ?, ?)";
+        String updateSql = "UPDATE team SET name = ?, continent = ? WHERE id = ?";
 
         try (Connection connection = dbConnection.getConnection()) {
             connection.setAutoCommit(false);
@@ -132,7 +133,7 @@ public class DataRetriever {
                 for (int i = 0; i < players.size(); i++) {
                     Player player = players.get(i);
                     try (PreparedStatement ps = connection.prepareStatement(
-                            "UPDATE player SET teamId = ? WHERE id = ?")) {
+                            "UPDATE player SET team_Id = ? WHERE id = ?")) {
                         ps.setInt(1, team.getId());
                         ps.setInt(2, player.getId());
                         ps.executeUpdate();
@@ -158,7 +159,7 @@ public class DataRetriever {
         String sql = """
                     SELECT DISTINCT t.id, t.name, t.ContinentEnum
                     FROM team t
-                    JOIN player p ON t.id = p.teamId
+                    JOIN player p ON t.id = p.team_Id
                     WHERE p.name LIKE ?
                 """;
 
@@ -182,6 +183,79 @@ public class DataRetriever {
         }
 
         return teams;
+    }
+
+    public List<Player> findPlayersByCriteria(
+            String playerName,
+            PositionEnum position,
+            String teamName,
+            ContinentEnum continent,
+            int page,
+            int size) {
+
+        List<Player> players = new ArrayList<>();
+        int offset = (page - 1) * size;
+
+        StringBuilder sql = new StringBuilder("""
+                    SELECT p.id, p.name, p.age, p.position, p.team_id
+                    FROM player p
+                    JOIN team t ON p.team_id = t.id
+                    WHERE 1=1
+                """);
+
+        if (playerName != null && !playerName.isEmpty()) {
+            sql.append(" AND p.name LIKE ?");
+        }
+        if (position != null) {
+            sql.append(" AND p.position = ?::player_position");
+        }
+        if (teamName != null && !teamName.isEmpty()) {
+            sql.append(" AND t.name LIKE ?");
+        }
+        if (continent != null) {
+            sql.append(" AND t.continent = ?::continents");
+        }
+
+        sql.append(" LIMIT ? OFFSET ?");
+
+        try (Connection connection = dbConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql.toString())) {
+
+            int index = 1;
+
+            if (playerName != null && !playerName.isEmpty()) {
+                ps.setString(index++, "%" + playerName + "%");
+            }
+            if (position != null) {
+                ps.setString(index++, position.name());
+            }
+            if (teamName != null && !teamName.isEmpty()) {
+                ps.setString(index++, "%" + teamName + "%");
+            }
+            if (continent != null) {
+                ps.setString(index++, continent.name());
+            }
+
+            ps.setInt(index++, size);
+            ps.setInt(index, offset);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    players.add(new Player(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getInt("age"),
+                            PositionEnum.valueOf(rs.getString("position")),
+                            rs.getInt("team_id"),
+                            (Integer) rs.getObject("goal_nb")));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Erreur lors de la recherche paginée des joueurs", e);
+        }
+
+        return players;
     }
 
 }
