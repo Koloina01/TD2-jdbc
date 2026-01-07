@@ -15,21 +15,37 @@ public class Team {
         this.continent = continent;
         this.players = new ArrayList<>();
     }
-    
+
     public int getId() {
         return id;
     }
+
     public String getName() {
         return name;
     }
+
     public ContinentEnum getContinent() {
         return continent;
     }
+
     public List<Player> getPlayers() {
         return players;
     }
 
     public Integer getPlayersCount() {
-         throw new UnsupportedOperationException("Not implemented yet.");
+        return players.size();
     }
+
+    public int getPlayersGoals() {
+        int sum = 0;
+        for (Player p : players) {
+            if (p.getGoalNb() == null) {
+                throw new RuntimeException(
+                        "Le joueur " + p.getName() + " n'a pas encore de buts renseignés");
+            }
+            sum += p.getGoalNb();
+        }
+        return sum;
+    }
+
 }
